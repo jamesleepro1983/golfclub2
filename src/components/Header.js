@@ -1,7 +1,8 @@
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
 import fiqLogo from '../assets/fiq-logo.png';
-import northForelandLogo from '../assets/north-foreland-logo.png';
+
+import canterburyLogo from '../assets/canterbury.jpg';
 
 const Header = ({ dateRange, lastUpdated, onRefresh }) => {
   const formatLastUpdated = () => {
@@ -54,7 +55,7 @@ const Header = ({ dateRange, lastUpdated, onRefresh }) => {
           {/* Right: Golf Club Logo */}
           <div className="flex items-center gap-3">
             <img 
-              src={northForelandLogo} 
+              src={canterburyLogo} 
               alt="Canterbury Golf Club" 
               className="h-20 w-auto "
             />
