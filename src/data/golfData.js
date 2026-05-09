@@ -13,7 +13,7 @@ const SHEET_GIDS = {
 
 // Build Google Sheets CSV URL using gid
 const getSheetUrlByGid = (gid) => {
-  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?output=csv&gid=${gid}`;
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
 };
 
 // Parse a single CSV line (handles quoted values with commas)
