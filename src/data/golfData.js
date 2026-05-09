@@ -1,9 +1,8 @@
-// Golf Dashboard Data - Canterbury Golf Club
+// Golf Dashboard Data - North Foreland Golf Club
 // Live data fetched from Google Sheets
 
-// Published Sheet ID (from /spreadsheets/d/e/{ID}/...)
-const SHEET_ID =
-  'e/2PACX-1vTj7fmnB1Mt5nLfny6JHEtrUIxW4Ry3w4-VaLDyZan8lZYl9IkelHWjjHpnWicHkY5OZJ2HVl9hSZPo';
+// Original Sheet ID
+const SHEET_ID = '1hX9tJoCvhKDmEczcVoYOQpwYAiXrWFhHQ1E-gz-47ZE';
 
 // Sheet tab GIDs (from the URL #gid=xxxxx)
 const SHEET_GIDS = {
