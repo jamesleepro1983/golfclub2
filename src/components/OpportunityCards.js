@@ -27,7 +27,7 @@ const CircularProgressIcon = ({ percentage = 75 }) => {
   );
 };
 
-const OpportunityCards = ({ data }) => {
+const OpportunityCards = ({ data, onEmailClick }) => {
   if (!data || data.length === 0) {
     return null;
   }
@@ -132,9 +132,11 @@ const OpportunityCards = ({ data }) => {
                 {/* Pill Buttons */}
                 <div className="flex justify-between gap-2 mb-4">
                   {['Email', 'Social', 'Pricing'].map((label) => {
+                    const isEmail = label === 'Email';
                     return (
-                      <button 
+                      <button
                         key={label}
+                        onClick={isEmail ? () => onEmailClick && onEmailClick(item) : undefined}
                         className="flex-1 rounded-full py-1.5 text-[13px] font-semibold transition-colors text-[#4B5563] bg-[#F3F4F6] hover:bg-[#126D5B] hover:text-white"
                       >
                         {label}
