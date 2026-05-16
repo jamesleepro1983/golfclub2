@@ -10,6 +10,7 @@ import RevenueHeatmap from './components/RevenueHeatmap';
 // import RevenueChart from './components/RevenueChart';
 // import PricingChart from './components/PricingChart';
 import DataTable from './components/DataTable';
+import EmailGenerator from './components/EmailGenerator';
 import { fetchAllData, formatCurrency, parseCurrency } from './data/golfData';
 
 function App() {
@@ -22,6 +23,21 @@ function App() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
+  const [emailPrefill, setEmailPrefill] = useState('');
+
+  const timeRanges = {
+    'Morning': '07:00–09:59',
+    'Late AM': '10:00–11:59',
+    'Early PM': '12:00–13:59',
+    'Late PM': '14:00–16:59',
+  };
+
+  const handleEmailClick = (item) => {
+    const band = item.time_band || '';
+    const range = timeRanges[band] ? ` (${timeRanges[band]})` : '';
+    const prefill = `Generate a promotional email campaign for ${item.day || 'an upcoming'} ${band}${range} tee times on ${item.play_date || 'this week'}. There are ${item.available_slots} available slots with ${item.potential_revenue} in potential revenue. Encourage customers to book during this quieter period.`;
+    setEmailPrefill(prefill);
+  };
 
   const formatDateForInput = (date) => {
     if (!date || isNaN(date.getTime())) return '';
@@ -269,7 +285,7 @@ function App() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         <section className="mb-8">
           {/* Opportunity Cards - Top 3 Revenue Opportunities */}
-          <OpportunityCards data={filteredSlotAnalysis} />
+          <OpportunityCards data={filteredSlotAnalysis} onEmailClick={handleEmailClick} />
         </section>
 
         {/* KPI Cards */}
@@ -379,6 +395,11 @@ function App() {
         </section> */}
 
 
+
+        {/* AI Email Generator */}
+        <section className="mb-8">
+          <EmailGenerator prefill={emailPrefill} />
+        </section>
 
         <section className="mt-8">
           {/* Data Table */}
