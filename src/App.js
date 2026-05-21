@@ -22,9 +22,16 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [dateRange, setDateRange] = useState({ from: '', to: '' });
+  const [dateRange, setDateRange] = useState(() => {
+    try {
+      const saved = localStorage.getItem('fiq_date_range');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { from: '', to: '' };
+  });
   const [emailPrefill, setEmailPrefill] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState('');
   const syncTimerRef = useRef(null);
   const isUserDateChange = useRef(false);
 
@@ -54,16 +61,26 @@ function App() {
 
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
 
+    const from = dateRange.from;
+    const to   = dateRange.to;
+
     syncTimerRef.current = setTimeout(async () => {
       setSyncing(true);
+      setSyncError('');
       try {
         const res = await fetch('/api/update-dates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fromDate: dateRange.from, toDate: dateRange.to }),
+          body: JSON.stringify({ fromDate: from, toDate: to }),
         });
-        if (res.ok) await loadData();
+        if (res.ok) {
+          await loadData(true); // skip date re-init so user's selection is preserved
+        } else {
+          const err = await res.json().catch(() => ({}));
+          setSyncError(err.error || 'Sync failed');
+        }
       } catch (err) {
+        setSyncError('Could not reach sync endpoint');
         console.error('Date sync failed:', err);
       } finally {
         setSyncing(false);
@@ -101,6 +118,15 @@ function App() {
   };
 
   const initializeDateRange = (lookerData) => {
+    // If user already has a saved preference, don't overwrite it
+    try {
+      const saved = localStorage.getItem('fiq_date_range');
+      if (saved) {
+        const { from, to } = JSON.parse(saved);
+        if (from && to) return;
+      }
+    } catch {}
+
     if (!lookerData || lookerData.length === 0) return;
 
     const dates = lookerData
@@ -115,20 +141,23 @@ function App() {
     const firstDate = sorted[0];
     const lastDate = sorted[sorted.length - 1];
 
-    setDateRange({
+    const newRange = {
       from: formatDateForInput(firstDate),
       to: formatDateForInput(lastDate)
-    });
+    };
+    try { localStorage.setItem('fiq_date_range', JSON.stringify(newRange)); } catch {}
+    setDateRange(newRange);
   };
 
-  const loadData = async () => {
+  // skipDateInit = true when reloading after a sync so user's dates are preserved
+  const loadData = async (skipDateInit = false) => {
     setLoading(true);
     setError(null);
     try {
       const fetchedData = await fetchAllData();
       setData(fetchedData);
       setLastUpdated(new Date());
-      initializeDateRange(fetchedData.lookerData);
+      if (!skipDateInit) initializeDateRange(fetchedData.lookerData);
     } catch (err) {
       setError('Failed to load data from Google Sheets');
       console.error(err);
@@ -290,8 +319,10 @@ function App() {
                   type="date"
                   value={dateRange.from}
                   onChange={(e) => {
+                    const updated = { ...dateRange, from: e.target.value };
+                    try { localStorage.setItem('fiq_date_range', JSON.stringify(updated)); } catch {}
                     isUserDateChange.current = true;
-                    setDateRange((prev) => ({ ...prev, from: e.target.value }));
+                    setDateRange(updated);
                   }}
                   className="filter-input pr-9 text-sm text-[#013734]"
                 />
@@ -305,8 +336,10 @@ function App() {
                   type="date"
                   value={dateRange.to}
                   onChange={(e) => {
+                    const updated = { ...dateRange, to: e.target.value };
+                    try { localStorage.setItem('fiq_date_range', JSON.stringify(updated)); } catch {}
                     isUserDateChange.current = true;
-                    setDateRange((prev) => ({ ...prev, to: e.target.value }));
+                    setDateRange(updated);
                   }}
                   className="filter-input pr-9 text-sm text-[#013734]"
                 />
@@ -319,6 +352,9 @@ function App() {
                   style={{ borderColor: '#40FFB9', borderTopColor: 'transparent' }} />
                 Syncing…
               </div>
+            )}
+            {syncError && !syncing && (
+              <div className="text-xs text-red-500">{syncError}</div>
             )}
           </div>
         </div>
