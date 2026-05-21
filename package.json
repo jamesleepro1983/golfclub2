@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "chart.js": "^4.4.1",
+    "googleapis": "^144.0.0",
     "lucide-react": "^0.309.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
