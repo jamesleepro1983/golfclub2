@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {  RefreshCw } from 'lucide-react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -23,7 +23,10 @@ function App() {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
-  const [emailPrefill, setEmailPrefill] = useState('');
+  const [emailPrefill, setEmailPrefill] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const syncTimerRef = useRef(null);
+  const isUserDateChange = useRef(false);
 
   const timeRanges = {
     'Morning': '07:00–09:59',
@@ -35,9 +38,42 @@ function App() {
   const handleEmailClick = (item) => {
     const band = item.time_band || '';
     const range = timeRanges[band] ? ` (${timeRanges[band]})` : '';
-    const prefill = `Generate a promotional email campaign for ${item.day || 'an upcoming'} ${band}${range} tee times on ${item.play_date || 'this week'}. There are ${item.available_slots} available slots with ${item.potential_revenue} in potential revenue. Encourage customers to book during this quieter period.`;
-    setEmailPrefill(prefill);
+    setEmailPrefill({
+      quietSlot:    `${item.day || ''} ${band}${range}`.trim(),
+      availability: `${item.available_slots} available slots, ${item.potential_revenue} potential revenue`,
+      timeBands:    '',
+      prices:       item.avg_price_gbp ? `${band} ${item.avg_price_gbp}` : '',
+      _ts:          Date.now(),
+    });
   };
+
+  // Sync date range to Google Sheet when user manually changes dates
+  useEffect(() => {
+    if (!isUserDateChange.current) return;
+    if (!dateRange.from || !dateRange.to) return;
+
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
+    syncTimerRef.current = setTimeout(async () => {
+      setSyncing(true);
+      try {
+        const res = await fetch('/api/update-dates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fromDate: dateRange.from, toDate: dateRange.to }),
+        });
+        if (res.ok) await loadData();
+      } catch (err) {
+        console.error('Date sync failed:', err);
+      } finally {
+        setSyncing(false);
+        isUserDateChange.current = false;
+      }
+    }, 1500);
+
+    return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange.from, dateRange.to]);
 
   const formatDateForInput = (date) => {
     if (!date || isNaN(date.getTime())) return '';
@@ -253,12 +289,12 @@ function App() {
                 <input
                   type="date"
                   value={dateRange.from}
-                  onChange={(e) =>
-                    setDateRange((prev) => ({ ...prev, from: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    isUserDateChange.current = true;
+                    setDateRange((prev) => ({ ...prev, from: e.target.value }));
+                  }}
                   className="filter-input pr-9 text-sm text-[#013734]"
                 />
-               
               </div>
             </div>
 
@@ -268,14 +304,22 @@ function App() {
                 <input
                   type="date"
                   value={dateRange.to}
-                  onChange={(e) =>
-                    setDateRange((prev) => ({ ...prev, to: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    isUserDateChange.current = true;
+                    setDateRange((prev) => ({ ...prev, to: e.target.value }));
+                  }}
                   className="filter-input pr-9 text-sm text-[#013734]"
                 />
-                
               </div>
             </div>
+
+            {syncing && (
+              <div className="flex items-center gap-1.5 text-xs text-[#126D5B]">
+                <div className="w-3 h-3 rounded-full border-2 animate-spin"
+                  style={{ borderColor: '#40FFB9', borderTopColor: 'transparent' }} />
+                Syncing…
+              </div>
+            )}
           </div>
         </div>
 
