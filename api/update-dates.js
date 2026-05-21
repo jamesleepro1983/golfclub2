@@ -1,8 +1,8 @@
 const { google } = require('googleapis');
 
 const SHEET_ID      = '1hX9tJoCvhKDmEczcVoYOQpwYAiXrWFhHQ1E-gz-47ZE';
-const START_DATE_CELL = 'SETTINGS!B2';
-const DAYS_TO_SCRAPE_CELL = 'SETTINGS!B3';
+const START_DATE_CELL = 'SETTINGS!B5';
+const DAYS_TO_SCRAPE_CELL = 'SETTINGS!B6';
 
 // Calculate number of days between two YYYY-MM-DD dates (inclusive)
 function daysBetween(from, to) {
