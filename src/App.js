@@ -32,9 +32,14 @@ function App() {
   const [emailPrefill, setEmailPrefill] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
-  const [syncDone, setSyncDone] = useState(false);
+  const [scrapeStatus, setScrapeStatus] = useState(null); // null | 'waiting' | 'timeout'
   const syncTimerRef = useRef(null);
   const isUserDateChange = useRef(false);
+  const pollRef = useRef(null);
+  const pollCountRef = useRef(0);
+  const pendingRangeRef = useRef(null);
+  const MAX_POLLS = 10;
+  const POLL_INTERVAL = 20000;
 
   const timeRanges = {
     'Morning': '07:00–09:59',
@@ -55,6 +60,47 @@ function App() {
     });
   };
 
+  const stopPolling = () => {
+    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
+  };
+
+  const startPolling = (from, to) => {
+    stopPolling();
+    pollCountRef.current = 0;
+    pendingRangeRef.current = { from, to };
+    setScrapeStatus('waiting');
+
+    const poll = async () => {
+      pollCountRef.current++;
+      try {
+        const fetched = await fetchAllData();
+        const fromD = new Date(from);
+        const toD   = new Date(to);
+        const hit = fetched.lookerData.some(row => {
+          const d = parseAnyDate(row.play_date);
+          if (!d) return false;
+          const rd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          return rd >= fromD && rd <= toD;
+        });
+        if (hit) {
+          setData(fetched);
+          setLastUpdated(new Date());
+          setScrapeStatus(null);
+          return;
+        }
+      } catch {}
+      if (pollCountRef.current >= MAX_POLLS) {
+        setScrapeStatus('timeout');
+        return;
+      }
+      pollRef.current = setTimeout(poll, POLL_INTERVAL);
+    };
+
+    pollRef.current = setTimeout(poll, POLL_INTERVAL);
+  };
+
+  useEffect(() => () => stopPolling(), []); // cleanup on unmount
+
   // Sync date range to Google Sheet when user manually changes dates
   useEffect(() => {
     if (!isUserDateChange.current) return;
@@ -68,7 +114,7 @@ function App() {
     syncTimerRef.current = setTimeout(async () => {
       setSyncing(true);
       setSyncError('');
-      setSyncDone(false);
+      setScrapeStatus(null);
       try {
         const res = await fetch('/api/update-dates', {
           method: 'POST',
@@ -76,9 +122,7 @@ function App() {
           body: JSON.stringify({ fromDate: from, toDate: to }),
         });
         if (res.ok) {
-          // Don't loadData here — the Golf Scraper must run first in the sheet
-          // to populate new data for the updated dates. User must refresh manually.
-          setSyncDone(true);
+          startPolling(from, to);
         } else {
           const err = await res.json().catch(() => ({}));
           setSyncError(err.error || 'Sync failed');
@@ -153,9 +197,9 @@ function App() {
     setDateRange(newRange);
   };
 
-  // skipDateInit = true when reloading after a sync so user's dates are preserved
-  const loadData = async (skipDateInit = false, clearSyncNotice = false) => {
-    if (clearSyncNotice) setSyncDone(false);
+  const loadData = async (skipDateInit = false) => {
+    stopPolling();
+    setScrapeStatus(null);
     setLoading(true);
     setError(null);
     try {
@@ -305,7 +349,7 @@ function App() {
       <Header 
         dateRange={getDateRange()} 
         lastUpdated={lastUpdated}
-        onRefresh={() => loadData(false, true)}
+        onRefresh={() => loadData(false)}
       />
 
       {/* Top controls: title + date range inputs + tabs */}
@@ -358,10 +402,22 @@ function App() {
                 Syncing sheet…
               </div>
             )}
-            {syncDone && !syncing && (
-              <div className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg"
-                style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
-                ⚠ Sheet updated — run Golf Scraper in the spreadsheet, then click Refresh
+            {scrapeStatus === 'waiting' && !syncing && (
+              <div className="flex items-center gap-1.5 text-xs text-[#126D5B]">
+                <div className="w-3 h-3 rounded-full border-2 animate-spin"
+                  style={{ borderColor: '#40FFB9', borderTopColor: 'transparent' }} />
+                Fetching new data…
+              </div>
+            )}
+            {scrapeStatus === 'timeout' && !syncing && (
+              <div className="flex items-center gap-2 text-xs font-medium">
+                <span className="text-[#92400E]">Still updating — scraper may need more time.</span>
+                <button
+                  onClick={() => loadData(true)}
+                  className="underline text-[#126D5B] hover:text-[#013734]"
+                >
+                  Refresh now
+                </button>
               </div>
             )}
             {syncError && !syncing && (
