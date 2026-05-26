@@ -32,6 +32,7 @@ function App() {
   const [emailPrefill, setEmailPrefill] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
+  const [syncDone, setSyncDone] = useState(false);
   const syncTimerRef = useRef(null);
   const isUserDateChange = useRef(false);
 
@@ -67,6 +68,7 @@ function App() {
     syncTimerRef.current = setTimeout(async () => {
       setSyncing(true);
       setSyncError('');
+      setSyncDone(false);
       try {
         const res = await fetch('/api/update-dates', {
           method: 'POST',
@@ -74,7 +76,9 @@ function App() {
           body: JSON.stringify({ fromDate: from, toDate: to }),
         });
         if (res.ok) {
-          await loadData(true); // skip date re-init so user's selection is preserved
+          // Don't loadData here — the Golf Scraper must run first in the sheet
+          // to populate new data for the updated dates. User must refresh manually.
+          setSyncDone(true);
         } else {
           const err = await res.json().catch(() => ({}));
           setSyncError(err.error || 'Sync failed');
@@ -150,7 +154,8 @@ function App() {
   };
 
   // skipDateInit = true when reloading after a sync so user's dates are preserved
-  const loadData = async (skipDateInit = false) => {
+  const loadData = async (skipDateInit = false, clearSyncNotice = false) => {
+    if (clearSyncNotice) setSyncDone(false);
     setLoading(true);
     setError(null);
     try {
@@ -300,7 +305,7 @@ function App() {
       <Header 
         dateRange={getDateRange()} 
         lastUpdated={lastUpdated}
-        onRefresh={loadData}
+        onRefresh={() => loadData(false, true)}
       />
 
       {/* Top controls: title + date range inputs + tabs */}
@@ -350,7 +355,13 @@ function App() {
               <div className="flex items-center gap-1.5 text-xs text-[#126D5B]">
                 <div className="w-3 h-3 rounded-full border-2 animate-spin"
                   style={{ borderColor: '#40FFB9', borderTopColor: 'transparent' }} />
-                Syncing…
+                Syncing sheet…
+              </div>
+            )}
+            {syncDone && !syncing && (
+              <div className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg"
+                style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                ⚠ Sheet updated — run Golf Scraper in the spreadsheet, then click Refresh
               </div>
             )}
             {syncError && !syncing && (
